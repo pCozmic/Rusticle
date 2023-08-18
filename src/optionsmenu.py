@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import QSlider, QLabel, QLineEdit, QPushButton, QVBoxLayout
 from PyQt5.QtCore import Qt, QPoint
 import platform
 from pynput.mouse import Listener
+from pynput.keyboard import Listener as KeyListener, KeyCode
 import os
 import json
 
@@ -14,7 +15,11 @@ class OptionsMenu(QFrame):
         super().__init__()
         self.crosshair = crosshair
         self.right_button_enabled = False
+        self.map_key_enabled = False
+        self.map_key = "g"
         self.listener = None
+        self.keylistener = None
+        self.keyListener = None
         self.initUI()
         self.load_settings()
 
@@ -108,10 +113,34 @@ class OptionsMenu(QFrame):
         settings_layout.addWidget(self.vertical_adjust_input)
         settings_layout.addWidget(alpha_label)
         settings_layout.addWidget(self.alpha_slider)
-        settings_layout.addStretch()
+        
 
         settings_group.setLayout(settings_layout)
         layout.addWidget(settings_group)
+
+
+        #TODO make this work for all keys not just letters.
+        map_hide_layout = QHBoxLayout()
+        self.map_key_input = QLineEdit("g")
+        self.map_key_input.setMaxLength(1)
+        self.map_key_input.setFixedWidth(40)
+        self.map_key_input.textChanged.connect(self.map_input_text_changed)
+
+        self.hide_crosshair_on_map_checkbox = QCheckBox("Hide crosshair when map is open")
+        self.hide_crosshair_on_map_checkbox.clicked.connect(self.toggle_map_functionality)
+        self.hide_crosshair_on_map_checkbox.setStyleSheet(checkbox_stylesheet)
+        map_hide_layout.addWidget(self.hide_crosshair_on_map_checkbox)
+        map_hide_layout.addWidget(self.map_key_input)
+        settings_layout.addLayout(map_hide_layout)
+
+        self.hide_crosshair_checkbox = QCheckBox("Hide crosshair on R-click")
+        self.hide_crosshair_checkbox.clicked.connect(self.toggle_right_button_functionality)
+        self.hide_crosshair_checkbox.setStyleSheet(checkbox_stylesheet)
+        settings_layout.addWidget(self.hide_crosshair_checkbox)
+
+
+        settings_layout.addStretch()
+
 
         button_layout = QHBoxLayout()
         self.apply_button = QPushButton("Apply")
@@ -119,10 +148,9 @@ class OptionsMenu(QFrame):
         self.apply_button.setStyleSheet(button_stylesheet)
         button_layout.addWidget(self.apply_button)
 
-        self.hide_crosshair_checkbox = QCheckBox("Hide crosshair on R-click")
-        self.hide_crosshair_checkbox.clicked.connect(self.toggle_right_button_functionality)
-        self.hide_crosshair_checkbox.setStyleSheet(checkbox_stylesheet)
-        button_layout.addWidget(self.hide_crosshair_checkbox)
+        
+        
+
 
         layout.addLayout(button_layout)
         self.setLayout(layout)
@@ -248,6 +276,14 @@ class OptionsMenu(QFrame):
         if button == button.right and not pressed:
             self.crosshair.show()
 
+    def on_press(self, key):
+        if key == KeyCode.from_char(self.map_key) and self.map_key_enabled:
+            self.crosshair.hide()
+
+    def on_release(self, key):
+        if key == KeyCode.from_char(self.map_key) and self.map_key_enabled:
+            self.crosshair.show()
+
     def toggle_right_button_functionality(self):
         self.right_button_enabled = not self.right_button_enabled
         if self.right_button_enabled:
@@ -260,3 +296,19 @@ class OptionsMenu(QFrame):
             if self.listener is not None:
                 self.listener.stop()
                 self.listener = None 
+    
+    def toggle_map_functionality(self):
+        self.map_key_enabled = not self.map_key_enabled
+
+        if self.map_key_enabled:
+            self.keylistener = KeyListener(on_press=self.on_press, on_release=self.on_release)
+            self.keylistener.start()
+
+        else:
+            if self.keylistener is not None:
+                self.keylistener.stop()
+                self.keylistener = None
+    
+    def map_input_text_changed(self,text):
+        self.map_key = text
+        
